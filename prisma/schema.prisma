@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A dental office using the agent. Looked up by the Twilio number that was dialed.
+model Business {
+  id           String   @id @default(cuid())
+  name         String
+  phoneNumber  String   @unique
+  timezone     String   @default("America/New_York")
+
+  /// Freeform structured hours, e.g. { "mon": "9:00am-5:00pm", "tue": "9:00am-5:00pm", "sun": "closed" }
+  hours        Json
+  /// List of services offered, e.g. ["Cleanings", "Fillings", "Whitening"]
+  services     Json
+  /// List of { "question": "...", "answer": "..." } pairs used to answer common questions
+  faq          Json
+  /// Extra freeform instructions for the agent (tone, escalation rules, insurance notes, etc.)
+  instructions String?  @db.Text
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  callLogs     CallLog[]
+  leads        Lead[]
+}
+
+enum CallOutcome {
+  IN_PROGRESS
+  MESSAGE_TAKEN
+  APPOINTMENT_REQUESTED
+  FAQ_ANSWERED
+  NO_ANSWER
+  OTHER
+}
+
+/// One record per phone call handled by the agent.
+model CallLog {
+  id           String      @id @default(cuid())
+  business     Business    @relation(fields: [businessId], references: [id])
+  businessId   String
+
+  callSid      String      @unique
+  callerNumber String
+
+  /// Ordered array of { role: "caller" | "agent", text: string, at: ISO timestamp }
+  transcript   Json
+  summary      String?     @db.Text
+  outcome      CallOutcome @default(IN_PROGRESS)
+
+  startedAt    DateTime    @default(now())
+  endedAt      DateTime?
+
+  lead         Lead?
+
+  @@index([businessId, startedAt])
+}
+
+/// A captured message / callback request / appointment request from a caller.
+model Lead {
+  id             String   @id @default(cuid())
+  business       Business @relation(fields: [businessId], references: [id])
+  businessId     String
+
+  callLog        CallLog? @relation(fields: [callLogId], references: [id])
+  callLogId      String?  @unique
+
+  name           String?
+  callbackNumber String
+  reason         String?  @db.Text
+  notes          String?  @db.Text
+
+  createdAt      DateTime @default(now())
+
+  @@index([businessId, createdAt])
+}
