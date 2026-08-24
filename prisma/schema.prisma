@@ -36,14 +36,17 @@ enum CallOutcome {
   APPOINTMENT_REQUESTED
   FAQ_ANSWERED
   NO_ANSWER
+  /// The caller dialed a number with no matching Business row configured.
+  NO_BUSINESS_CONFIGURED
   OTHER
 }
 
 /// One record per phone call handled by the agent.
 model CallLog {
   id           String      @id @default(cuid())
-  business     Business    @relation(fields: [businessId], references: [id])
-  businessId   String
+  /// Null when the dialed number didn't match any configured Business (see NO_BUSINESS_CONFIGURED).
+  business     Business?   @relation(fields: [businessId], references: [id])
+  businessId   String?
 
   callSid      String      @unique
   callerNumber String

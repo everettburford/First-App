@@ -73,25 +73,27 @@ export class CallSession {
     logger.info("Call stream started", { callSid: this.callSid, from: this.callerNumber, to: toNumber });
 
     this.business = await findBusinessByPhoneNumber(toNumber);
-    if (!this.business) {
-      logger.error("No business configured for dialed number", { toNumber });
-      await this.speak(
-        "Sorry, this office isn't set up yet. Please try again later. Goodbye."
-      );
-      this.endCall();
-      return;
-    }
 
     const callLog = await prisma.callLog.create({
       data: {
-        businessId: this.business.id,
+        businessId: this.business?.id ?? null,
         callSid: this.callSid!,
         callerNumber: this.callerNumber,
         transcript: [],
-        outcome: "IN_PROGRESS",
+        outcome: this.business ? "IN_PROGRESS" : "NO_BUSINESS_CONFIGURED",
       },
     });
     this.callLogId = callLog.id;
+
+    if (!this.business) {
+      logger.error("No business configured for dialed number", { toNumber });
+      const message = "Sorry, this office isn't set up yet. Please try again later. Goodbye.";
+      this.history.push({ role: "agent", text: message, at: new Date().toISOString() });
+      await this.persistTranscript();
+      await this.speak(message);
+      this.endCall();
+      return;
+    }
 
     this.deepgram = openDeepgramStream({
       onFinalTranscript: (text) => this.handleCallerUtterance(text),

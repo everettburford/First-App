@@ -23,6 +23,7 @@ export type CallOutcome =
   | "appointment_requested"
   | "faq_answered"
   | "no_answer"
+  | "no_business_configured"
   | "other";
 
 export interface CapturedLead {
