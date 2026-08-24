@@ -100,6 +100,7 @@ export class CallSession {
 
     const greeting = GREETING(this.business.name);
     this.history.push({ role: "agent", text: greeting, at: new Date().toISOString() });
+    await this.persistTranscript();
     await this.speak(greeting);
   }
 
