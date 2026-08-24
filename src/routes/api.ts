@@ -3,12 +3,25 @@ import { prisma } from "../db/prisma";
 
 export const apiRouter = Router();
 
-/** GET /api/call-logs?businessId=&limit=&cursor= */
+/**
+ * GET /api/call-logs?businessId=&limit=&unmatched=
+ * Pass unmatched=true to list only calls to a number with no configured
+ * Business (businessId is null, outcome NO_BUSINESS_CONFIGURED). Takes
+ * precedence over businessId if both are given, since they're mutually
+ * exclusive filters.
+ */
 apiRouter.get("/call-logs", async (req: Request, res: Response) => {
-  const { businessId, limit } = req.query;
+  const { businessId, limit, unmatched } = req.query;
+
+  const where =
+    unmatched === "true"
+      ? { businessId: null }
+      : businessId
+        ? { businessId: String(businessId) }
+        : undefined;
 
   const callLogs = await prisma.callLog.findMany({
-    where: businessId ? { businessId: String(businessId) } : undefined,
+    where,
     orderBy: { startedAt: "desc" },
     take: limit ? Number(limit) : 50,
     include: { lead: true },

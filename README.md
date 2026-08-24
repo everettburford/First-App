@@ -167,6 +167,7 @@ row.
 ## REST API (for a future dashboard)
 
 - `GET /api/call-logs?businessId=&limit=` — list recent call logs (includes linked lead, if any)
+- `GET /api/call-logs?unmatched=true&limit=` — list calls to a number with no configured business (`businessId` is null, `outcome` is `NO_BUSINESS_CONFIGURED`) — useful for spotting a Twilio number that isn't wired up to a `Business` row yet
 - `GET /api/call-logs/:id` — single call log with full transcript
 - `GET /api/leads?businessId=&limit=` — list captured leads
 - `GET /api/businesses` — list configured businesses
