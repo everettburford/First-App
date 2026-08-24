@@ -68,11 +68,14 @@ apiRouter.get(
   })
 );
 
-/** GET /api/businesses */
+/** GET /api/businesses?limit= */
 apiRouter.get(
   "/businesses",
-  asyncHandler(async (_req: Request, res: Response) => {
-    const businesses = await prisma.business.findMany({ orderBy: { name: "asc" } });
+  asyncHandler(async (req: Request, res: Response) => {
+    const businesses = await prisma.business.findMany({
+      orderBy: { name: "asc" },
+      take: parseLimit(req.query.limit),
+    });
     res.json(businesses);
   })
 );
