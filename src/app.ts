@@ -19,12 +19,24 @@ export function createApp() {
   app.use("/api", apiRouter);
 
   // Last-resort handler: catches anything forwarded via next(err) (e.g. from
-  // asyncHandler-wrapped routes) so a request-level error returns a 500
-  // instead of crashing the process and dropping every in-progress call.
+  // asyncHandler-wrapped routes, or body-parser's malformed-JSON errors) so
+  // a request-level error returns a response instead of crashing the
+  // process and dropping every in-progress call.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     logger.error("Unhandled request error", { err });
     if (res.headersSent) return;
-    res.status(500).json({ error: "Internal server error" });
+
+    // Respect a client-error status a lower middleware already computed
+    // (e.g. body-parser sets 400 on malformed JSON) instead of always
+    // reporting 500 for what's actually a bad request.
+    const errWithStatus = err as { status?: unknown; statusCode?: unknown };
+    const candidateStatus = errWithStatus?.status ?? errWithStatus?.statusCode;
+    const status =
+      typeof candidateStatus === "number" && candidateStatus >= 400 && candidateStatus < 500
+        ? candidateStatus
+        : 500;
+
+    res.status(status).json({ error: status === 500 ? "Internal server error" : "Bad request" });
   });
 
   return app;

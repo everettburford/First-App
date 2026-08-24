@@ -92,6 +92,24 @@ apiRouter.post(
         .json({ error: "name, phoneNumber, hours, services, and faq are required" });
     }
 
+    // The agent brain builds the caller-facing system prompt straight from
+    // these fields (Object.entries on hours, .map on services/faq) — a
+    // wrong shape here doesn't fail loudly, it silently breaks every call
+    // to this business the moment a caller says anything.
+    if (
+      typeof name !== "string" ||
+      typeof phoneNumber !== "string" ||
+      typeof hours !== "object" ||
+      Array.isArray(hours) ||
+      !Array.isArray(services) ||
+      !Array.isArray(faq)
+    ) {
+      return res.status(400).json({
+        error:
+          "name and phoneNumber must be strings; hours must be an object; services and faq must be arrays",
+      });
+    }
+
     const business = await prisma.business.upsert({
       where: { phoneNumber },
       update: { name, timezone, hours, services, faq, instructions },
