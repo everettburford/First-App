@@ -49,18 +49,24 @@ export class CallSession {
       return;
     }
 
-    switch (msg.event) {
-      case "start":
-        await this.handleStart(msg.start as TwilioStartPayload);
-        break;
-      case "media":
-        this.handleMedia(msg.media.payload as string);
-        break;
-      case "stop":
-        await this.handleStop();
-        break;
-      default:
-        break;
+    try {
+      switch (msg.event) {
+        case "start":
+          await this.handleStart(msg.start as TwilioStartPayload);
+          break;
+        case "media":
+          this.handleMedia(msg.media.payload as string);
+          break;
+        case "stop":
+          await this.handleStop();
+          break;
+        default:
+          break;
+      }
+    } catch (err) {
+      // A DB blip or unexpected payload on one call must not crash the
+      // process and drop every other in-progress call.
+      logger.error("Error handling Twilio media stream message", { event: msg.event, err });
     }
   }
 
