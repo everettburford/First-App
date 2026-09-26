@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Word Duel</title>
+  <meta name="theme-color" content="#2b2d6e" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.2/babel.min.js"></script>
+  <style>html,body{margin:0;background:#2b2d6e;} button{cursor:pointer;-webkit-tap-highlight-color:transparent;}</style>
+  <script>
+    // Shared storage backed by a Netlify Function + Netlify Blobs
+    const api = (k) => "/api/store?key=" + encodeURIComponent(k);
+    window.storage = {
+      async get(k) {
+        const r = await fetch(api(k), { cache: "no-store" });
+        const j = await r.json();
+        if (j.value == null) throw new Error("Key not found");
+        return { key: k, value: j.value, shared: true };
+      },
+      async set(k, v) {
+        await fetch(api(k), { method: "PUT", body: v });
+        return { key: k, value: v, shared: true };
+      },
+      async delete(k) {
+        await fetch(api(k), { method: "DELETE" });
+        return { key: k, deleted: true, shared: true };
+      },
+    };
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react" src="app.jsx"></script>
+</body>
+</html>
