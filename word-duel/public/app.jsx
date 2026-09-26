@@ -72,6 +72,7 @@ function useBoard(answer, resetKey, locked, onRows) {
 const tileColor = (p) => (p === "g" ? C.hit : p === "y" ? C.near : p === "b" ? C.miss : C.empty);
 
 function Grid({ rows, cur, shake }) {
+  const revealEnd = 0.45 + 4 * 0.08;
   return (
     <div className="flex flex-col gap-1.5 items-center">
       {Array.from({ length: 6 }, (_, r) => {
@@ -80,14 +81,17 @@ function Grid({ rows, cur, shake }) {
           <div key={r} className="flex gap-1.5" style={isCur && shake ? { animation: "shake .35s" } : {}}>
             {Array.from({ length: 5 }, (_, i) => {
               const ch = row ? row.w[i] : isCur ? cur[i] : "";
+              const won = row && row.p === "ggggg";
               return (
-                <div key={i} className="flex items-center justify-center font-black uppercase"
-                  style={{
-                    width: 54, height: 54, fontSize: 26, borderRadius: 10, color: C.text,
-                    background: row ? tileColor(row.p[i]) : C.empty,
-                    border: !row && ch ? `2px solid ${C.text}` : "2px solid transparent",
-                    animation: row ? `flip .45s ${i * 0.08}s both` : "none",
-                  }}>{ch}</div>
+                <div key={i} style={{ animation: won ? `bounce .6s ${revealEnd + i * 0.1}s both` : "none" }}>
+                  <div className="flex items-center justify-center font-black uppercase"
+                    style={{
+                      width: 54, height: 54, fontSize: 26, borderRadius: 10, color: C.text,
+                      background: row ? tileColor(row.p[i]) : C.empty,
+                      border: !row && ch ? `2px solid ${C.text}` : "2px solid transparent",
+                      animation: row ? `flip .45s ${i * 0.08}s both` : ch ? "pop .12s ease-out" : "none",
+                    }}>{ch}</div>
+                </div>
               );
             })}
           </div>
@@ -104,7 +108,8 @@ function MiniGrid({ patterns, color, label }) {
       {Array.from({ length: 6 }, (_, r) => (
         <div key={r} className="flex gap-0.5">
           {Array.from({ length: 5 }, (_, i) => (
-            <div key={i} style={{ width: 11, height: 11, borderRadius: 3, background: patterns[r] ? tileColor(patterns[r][i]) : C.empty }} />
+            <div key={i} style={{ width: 11, height: 11, borderRadius: 3, background: patterns[r] ? tileColor(patterns[r][i]) : C.empty,
+              animation: patterns[r] ? `pop .3s ${i * 0.05}s both` : "none" }} />
           ))}
         </div>
       ))}
@@ -127,6 +132,7 @@ function Keyboard({ rows, press }) {
               <button key={k} onClick={() => press(k === "+" ? "enter" : k === "-" ? "back" : k)}
                 className="font-bold uppercase active:scale-95"
                 style={{
+                  transition: "background-color .3s .75s, transform .1s",
                   flex: special ? 1.5 : 1, height: 52, borderRadius: 8, color: C.text, fontSize: special ? 12 : 16,
                   background: best[k] ? tileColor(best[k]) : "#5a5dab", border: "none",
                 }}>{k === "+" ? "Enter" : k === "-" ? "⌫" : k}</button>
@@ -140,8 +146,33 @@ function Keyboard({ rows, press }) {
 
 const Btn = ({ children, onClick, color = C.you, disabled }) => (
   <button onClick={onClick} disabled={disabled}
-    className="w-full font-black py-3.5 active:scale-95 disabled:opacity-50"
+    className="w-full font-black py-3.5 active:scale-95 hover:-translate-y-0.5 transition-transform disabled:opacity-50"
     style={{ background: color, color: "#1c1d4a", borderRadius: 14, fontSize: 17, border: "none" }}>{children}</button>
+);
+
+function Confetti() {
+  const [pieces] = useState(() => Array.from({ length: 60 }, (_, i) => ({
+    left: Math.random() * 100, delay: Math.random() * 0.6, dur: 1.8 + Math.random() * 1.4,
+    size: 6 + Math.random() * 6, drift: (Math.random() - 0.5) * 160, spin: 360 + Math.random() * 720,
+    color: [C.hit, C.near, C.you, C.them, C.text][i % 5], round: Math.random() < 0.3,
+  })));
+  return (
+    <div className="confetti" style={{ position: "fixed", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 50 }}>
+      {pieces.map((p, i) => (
+        <div key={i} style={{
+          position: "absolute", top: -20, left: `${p.left}%`, width: p.size, height: p.round ? p.size : p.size * 0.5,
+          borderRadius: p.round ? "50%" : 2, background: p.color, "--drift": `${p.drift}px`, "--spin": `${p.spin}deg`,
+          animation: `fall ${p.dur}s ${p.delay}s cubic-bezier(.3,.6,.6,1) both`,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+const Status = ({ text, color }) => (
+  <div style={{ minHeight: 24, color }} className="font-bold text-center">
+    {text && <span key={text} style={{ display: "inline-block", animation: "popIn .3s ease-out" }}>{text}</span>}
+  </div>
 );
 
 // ---------- solo ----------
@@ -152,11 +183,11 @@ function Solo({ onBack }) {
   return (
     <div className="flex flex-col items-center gap-4 w-full">
       <TopBar onBack={onBack} title="Practice" />
-      <div style={{ height: 24, color: C.near }} className="font-bold">
-        {b.toast || (b.solved ? `Got it in ${b.rows.length}!` : b.done ? `The word was ${answer.toUpperCase()}` : "")}
-      </div>
+      <Status color={b.solved && !b.toast ? C.hit : C.near}
+        text={b.toast || (b.solved ? `Got it in ${b.rows.length}!` : b.done ? `The word was ${answer.toUpperCase()}` : "")} />
       <Grid rows={b.rows} cur={b.cur} shake={b.shake} />
-      {b.done && <div className="w-48"><Btn color={C.hit} onClick={() => { setAnswer(pick()); setN(n + 1); }}>New word</Btn></div>}
+      {b.solved && <Confetti key={n} />}
+      {b.done && <div className="w-48" style={{ animation: "fadeUp .4s 1s both" }}><Btn color={C.hit} onClick={() => { setAnswer(pick()); setN(n + 1); }}>New word</Btn></div>}
       <Keyboard rows={b.rows} press={b.press} />
     </div>
   );
@@ -265,7 +296,9 @@ function Duel({ code, me, isHost, quick, onLeave }) {
         ) : (
           <div className="text-center mt-10">
             <div style={{ opacity: 0.75 }}>Send this code to a friend</div>
-            <div className="font-black my-3" style={{ fontSize: 64, letterSpacing: 10, color: C.near }}>{code}</div>
+            <div className="font-black my-3" style={{ fontSize: 64, letterSpacing: 10, color: C.near }}>
+              {code.split("").map((ch, i) => <span key={i} style={{ display: "inline-block", animation: `popIn .4s ${0.1 + i * 0.1}s both` }}>{ch}</span>)}
+            </div>
             <div style={{ opacity: 0.75 }}>Or send them a link that drops them straight into this match.</div>
             <div className="w-64 mx-auto mt-5"><InviteButton code={code} /></div>
           </div>
@@ -288,14 +321,15 @@ function Duel({ code, me, isHost, quick, onLeave }) {
 
   return (
     <div className="flex flex-col items-center gap-3 w-full">
-      <TopBar onBack={leave} title={`Round ${round}`} right={<span className="font-black"><span style={{ color: C.you }}>{myScore}</span> – <span style={{ color: C.them }}>{oppScore}</span></span>} />
+      <TopBar onBack={leave} title={`Round ${round}`} right={<span className="font-black"><span key={`m${myScore}`} style={{ color: C.you, display: "inline-block", animation: "bump .5s" }}>{myScore}</span> – <span key={`o${oppScore}`} style={{ color: C.them, display: "inline-block", animation: "bump .5s" }}>{oppScore}</span></span>} />
       <div className="flex items-center justify-center gap-5 w-full">
         <Grid rows={b.rows} cur={b.cur} shake={b.shake} />
         <MiniGrid patterns={oppState.rows} color={C.them} label={oppInfo.name} />
       </div>
-      <div style={{ minHeight: 24, color: result === "win" ? C.hit : C.near }} className="font-bold text-center">{status}</div>
+      <Status text={status} color={result === "win" ? C.hit : C.near} />
+      {result === "win" && <Confetti key={round} />}
       {roundOver && (
-        <div className="flex flex-col items-center gap-2 w-60">
+        <div className="flex flex-col items-center gap-2 w-60" style={{ animation: "fadeUp .4s .5s both" }}>
           <div className="text-sm" style={{ opacity: 0.8 }}>The word was <b>{meta.word.toUpperCase()}</b></div>
           {mine.current.ready === round
             ? <div className="text-sm font-bold" style={{ color: C.them }}>Waiting for {oppInfo.name}…</div>
@@ -382,10 +416,18 @@ function App() {
         @keyframes flip { 0% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
         @keyframes shake { 0%,100% { transform: translateX(0);} 25% { transform: translateX(-6px);} 75% { transform: translateX(6px);} }
         @keyframes bob { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-10px);} }
-        @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
+        @keyframes popIn { 0% { opacity: 0; transform: scale(.6); } 70% { opacity: 1; transform: scale(1.08); } 100% { transform: scale(1); } }
+        @keyframes bounce { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-18px); } 60% { transform: translateY(2px); } 80% { transform: translateY(-5px); } }
+        @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.6); } 100% { transform: scale(1); } }
+        @keyframes fadeUp { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
+        @keyframes fall { 0% { transform: translate(0, 0) rotate(0); opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(var(--drift), 105vh) rotate(var(--spin)); opacity: 0; } }
+        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } .confetti { display: none; } }
         button:focus-visible, input:focus-visible { outline: 3px solid ${C.near}; outline-offset: 2px; }
       `}</style>
 
+      <div key={screen + (showInvite ? "i" : "")} className="w-full flex flex-col items-center" style={{ animation: "fadeUp .35s ease-out both" }}>
       {screen === "solo" && <Solo onBack={() => setScreen("home")} />}
       {screen === "duel" && room && <Duel {...room} me={me} onLeave={() => { setRoom(null); setScreen("home"); }} />}
 
@@ -413,8 +455,10 @@ function App() {
         <div className="flex flex-col items-center gap-5 w-full" style={{ maxWidth: 360 }}>
           <div className="flex gap-1.5 mt-6">
             {"DUEL".split("").map((ch, i) => (
-              <div key={i} className="flex items-center justify-center font-black"
-                style={{ width: 62, height: 62, fontSize: 34, borderRadius: 12, background: [C.hit, C.near, C.miss, C.hit][i], animation: `flip .5s ${i * 0.12}s both` }}>{ch}</div>
+              <div key={i} style={{ animation: `float 2.4s ${0.8 + i * 0.2}s ease-in-out infinite` }}>
+                <div className="flex items-center justify-center font-black"
+                  style={{ width: 62, height: 62, fontSize: 34, borderRadius: 12, background: [C.hit, C.near, C.miss, C.hit][i], animation: `flip .5s ${i * 0.12}s both` }}>{ch}</div>
+              </div>
             ))}
           </div>
           <p className="text-center" style={{ opacity: 0.8, lineHeight: 1.5 }}>
@@ -440,6 +484,7 @@ function App() {
           <p className="text-xs text-center" style={{ opacity: 0.55 }}>Your name and guesses are shared with the other player in your match.</p>
         </div>
       )}
+      </div>
     </div>
   );
 }
