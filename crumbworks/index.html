@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#24140D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Crumbworks">
+<meta name="description" content="Bake cookies, build a bakery empire, and ascend.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Crumbworks Bakery</title>
+<style>
+/* ============ Design tokens: a bakery after dark ============ */
+:root{
+  --bg:#24140D; --panel:#33201A; --panel2:#422A20; --panel3:#50342A;
+  --cream:#F6E7CF; --muted:#C9AE8E; --gold:#F2C14E; --pist:#9BC59D;
+  --line:#5A3A2C; --dark:#170C07;
+  --slab:"Rockwell","Roboto Slab","Zilla Slab","Clarendon","Georgia",serif;
+  --sans:"Avenir Next","Avenir","Segoe UI",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--cream);font-family:var(--sans);overflow:hidden;-webkit-tap-highlight-color:transparent;
+  overscroll-behavior:none;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%}
+input,textarea{-webkit-user-select:text;user-select:text}
+#app{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+#mid,#right,#modalBox{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+#cookieBtn{touch-action:none}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--pist);outline-offset:2px}
+#app{display:grid;grid-template-rows:auto minmax(0,1fr) auto;grid-template-columns:minmax(0,1fr);position:fixed;inset:0}
+
+/* ============ Header: news ticker + menu ============ */
+header{display:flex;align-items:stretch;background:var(--dark);border-bottom:2px solid var(--line);min-height:42px}
+#ticker{flex:1;min-width:0;overflow:hidden;position:relative;cursor:pointer;display:flex;align-items:center}
+#tickerText{white-space:nowrap;padding-left:100%;font-family:var(--slab);color:var(--muted);font-size:.95rem}
+#tickerText.run{animation:marquee var(--dur,18s) linear forwards}
+@keyframes marquee{to{transform:translateX(-100%)}}
+#ticker::before{content:"Crumb Gazette";flex:none;position:relative;z-index:2;background:var(--gold);color:var(--dark);font-family:var(--slab);font-weight:700;padding:0 12px;height:100%;display:flex;align-items:center;font-size:.85rem}
+.menu{display:flex;gap:2px;padding:4px}
+.menu button{background:var(--panel2);border:0;border-radius:8px;padding:6px 12px;font-size:.9rem}
+.menu button:hover{background:var(--panel3)}
+#ascendBtn{display:none;background:linear-gradient(180deg,#FFF3C4,#F2C14E);color:var(--dark);font-weight:700;animation:pulseGold 1.6s ease-in-out infinite}
+@keyframes pulseGold{50%{box-shadow:0 0 14px #F2C14E}}
+
+/* ============ Main three-column layout ============ */
+#main{display:grid;grid-template-columns:minmax(300px,1fr) minmax(260px,1.05fr) minmax(300px,390px);min-height:0}
+
+/* Left: the cookie */
+#left{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;
+  background:radial-gradient(ellipse at 50% 55%,#6B4029 0%,#3A2419 50%,#24140D 100%);border-right:2px solid var(--line)}
+#fxBack,#fxFront{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#fxBack{z-index:1} #fxFront{z-index:3}
+.bakery{position:relative;z-index:4;margin-top:14px;display:flex;align-items:baseline;font-family:var(--slab);font-size:1.3rem}
+.bakery input{background:transparent;border:0;border-bottom:2px dashed transparent;color:var(--cream);font:inherit;text-align:right;padding:0;min-width:3ch}
+.bakery input:hover,.bakery input:focus{border-bottom-color:var(--muted);outline:none}
+#count{position:relative;z-index:4;font-family:var(--slab);font-weight:700;font-size:clamp(1.7rem,3.6vw,2.6rem);color:var(--gold);text-align:center;line-height:1.1;margin-top:6px;text-shadow:0 3px 0 var(--dark);padding:0 10px}
+#count small{display:block;font-size:.45em;color:var(--cream);text-shadow:none;font-weight:400}
+#cpsline{position:relative;z-index:4;color:var(--muted);font-size:.95rem;margin-top:2px}
+#buffs{position:relative;z-index:4;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;min-height:26px}
+.buff{background:var(--dark);border:1px solid var(--gold);border-radius:14px;padding:3px 10px;font-size:.8rem;position:relative;overflow:hidden}
+.buff i{position:absolute;left:0;bottom:0;height:3px;background:var(--gold)}
+#stage{flex:1 1 0;width:100%;display:grid;place-items:center;position:relative;z-index:2;min-height:0;overflow:visible}
+#cookieBtn{background:none;border:0;padding:0;border-radius:50%;width:200px;height:200px;flex:none;
+  transition:transform .3s cubic-bezier(.3,1.9,.5,1);filter:drop-shadow(0 16px 20px rgba(0,0,0,.5))}
+#cookieBtn:hover{transform:scale(1.05)}
+#cookieBtn.press{transform:scale(.9);transition:transform .05s}
+#cookieBtn svg{width:100%;height:100%;display:block;overflow:visible}
+.float{position:absolute;z-index:5;pointer-events:none;font-family:var(--slab);font-weight:700;color:#fff;text-shadow:0 2px 0 #0008;animation:rise 1s ease-out forwards;white-space:nowrap}
+.float.gold{color:var(--gold);font-size:1.3rem;animation-duration:1.8s}
+@keyframes rise{from{transform:translate(-50%,0);opacity:1}to{transform:translate(-50%,-70px);opacity:0}}
+
+/* Middle: bakery floor scenes */
+#mid{overflow-y:auto;padding:12px;background:var(--panel);border-right:2px solid var(--line)}
+h2{font-family:var(--slab);font-size:1.05rem;margin:4px 2px 10px;color:var(--cream);font-weight:700}
+.empty{color:var(--muted);padding:30px 10px;text-align:center;line-height:1.5}
+.scene{border-radius:14px;margin-bottom:8px;padding:6px 10px 4px;border:1px solid #0003;box-shadow:inset 0 -10px 20px #0003}
+.scene header{all:unset;display:flex;justify-content:space-between;font-size:.8rem;color:#fffc}
+.sprites{display:flex;flex-wrap:nowrap;gap:2px;height:44px;align-items:flex-end;overflow:hidden;font-size:26px;perspective:200px}
+.sprites span{display:inline-block;transform-origin:50% 100%;line-height:1}
+.sprites em{font-style:normal;font-size:.8rem;align-self:center;margin-left:6px;color:#fffb}
+@keyframes tap{0%,78%,100%{transform:translateY(0)}88%{transform:translateY(7px)}}
+@keyframes rock{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}
+@keyframes grow{0%,100%{transform:scaleY(.8)}50%{transform:scaleY(1.12)}}
+@keyframes sparkle{0%,100%{filter:brightness(1)}50%{filter:brightness(1.9) drop-shadow(0 0 5px #fff)}}
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-1.5px,1px)}75%{transform:translate(1.5px,-1px)}}
+@keyframes coin{to{transform:rotateY(360deg)}}
+@keyframes glow{0%,100%{filter:drop-shadow(0 0 0 #F2C14E)}50%{filter:drop-shadow(0 0 9px #F2C14E)}}
+@keyframes hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes launch{0%{transform:translateY(10px);opacity:0}15%{opacity:1}100%{transform:translateY(-60px);opacity:0}}
+@keyframes bubble{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes hue{to{filter:hue-rotate(360deg)}}
+@keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-16deg)}75%{transform:rotate(16deg)}}
+
+/* Right: the store */
+#right{overflow-y:auto;padding:12px;background:var(--panel)}
+#upgrades{display:grid;grid-template-columns:repeat(auto-fill,48px);gap:6px;margin-bottom:14px;min-height:48px}
+.up{width:48px;height:48px;border-radius:8px;border:2px solid var(--line);background:var(--panel2);font-size:24px;display:grid;place-items:center;position:relative;padding:0}
+.up.afford{border-color:var(--gold);animation:softGlow 2s ease-in-out infinite}
+.up:not(.afford){opacity:.5}
+.up b{position:absolute;right:2px;bottom:1px;font-size:.6rem;font-family:var(--slab)}
+.up.sel{outline:3px solid var(--pist)}
+@keyframes softGlow{50%{box-shadow:0 0 10px #F2C14E88}}
+.upEmpty{grid-column:1/-1;color:var(--muted);font-size:.85rem;align-self:center}
+.bulk{display:flex;gap:4px;margin-bottom:8px}
+.bulk span{color:var(--muted);font-size:.85rem;align-self:center;margin-right:4px}
+.bulk button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 10px;font-size:.85rem}
+.bulk button.on{background:var(--gold);color:var(--dark);border-color:var(--gold);font-weight:700}
+.bld{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;width:100%;text-align:left;
+  background:var(--panel2);border:2px solid transparent;border-radius:14px;padding:8px 12px 8px 8px;margin-bottom:6px;transition:transform .12s}
+.bld:active{transform:scale(.98)}
+.bld .ic{font-size:30px;text-align:center}
+.bld .nm{font-family:var(--slab);font-weight:700;font-size:1.02rem}
+.bld .pr{font-size:.85rem;color:var(--muted)}
+.bld .ow{font-family:var(--slab);font-size:1.7rem;color:#fff4;font-weight:700}
+.bld.afford{border-color:#F2C14E99}
+.bld.afford .pr{color:var(--pist)}
+.bld:not(.afford){opacity:.6}
+.bld.mystery .ic{filter:brightness(0);opacity:.45}
+.bld.hidden{display:none}
+
+/* Tooltip */
+#tip{position:fixed;z-index:60;max-width:290px;background:var(--dark);border:1px solid var(--gold);border-radius:10px;padding:10px 12px;font-size:.85rem;line-height:1.4;pointer-events:none;display:none;box-shadow:0 10px 30px #000a}
+#tip b{font-family:var(--slab);font-size:1rem;display:block}
+#tip .c{color:var(--gold);display:block;margin:2px 0 6px}
+#tip p{margin:0 0 6px}
+#tip q{color:var(--muted);font-style:italic;display:block}
+
+/* Golden cookie */
+#golden{position:fixed;z-index:40;width:74px;height:74px;border:0;background:none;padding:0;display:none;animation:gspin 7s linear infinite,gpulse 1.2s ease-in-out infinite}
+#golden svg{width:100%;height:100%;filter:drop-shadow(0 0 12px #FFD76A)}
+@keyframes gspin{to{rotate:360deg}}
+@keyframes gpulse{50%{scale:1.14}}
+#golden.fade{transition:opacity .6s;opacity:0}
+
+/* Sparkles, toasts, modals */
+.spark{position:fixed;z-index:55;pointer-events:none;color:var(--gold);font-size:14px;animation:burst .7s ease-out forwards}
+@keyframes burst{from{transform:translate(0,0) scale(1);opacity:1}to{transform:translate(var(--dx),var(--dy)) scale(.3);opacity:0}}
+.flash{animation:flash .4s}
+@keyframes flash{0%{background:#fff}}
+#toasts{position:fixed;right:14px;bottom:14px;z-index:70;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.toast{background:var(--dark);border:1px solid var(--pist);border-left:6px solid var(--pist);border-radius:10px;padding:8px 14px;max-width:300px;font-size:.85rem;animation:tin .35s cubic-bezier(.3,1.6,.5,1)}
+.toast b{font-family:var(--slab);display:block;font-size:1rem}
+.toast small{color:var(--pist)}
+@keyframes tin{from{transform:translateX(120%)}}
+#modal{position:fixed;inset:0;z-index:80;background:#0009;display:none;place-items:center;padding:16px}
+#modal.on{display:grid}
+#modalBox{background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:20px;width:min(560px,100%);max-height:85vh;overflow:auto;position:relative}
+#modalBox h3{font-family:var(--slab);margin:0 0 12px;font-size:1.4rem}
+#modalClose{position:absolute;right:10px;top:8px;background:none;border:0;font-size:1.5rem;color:var(--muted)}
+.statRow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line);font-size:.92rem}
+.statRow span:last-child{color:var(--gold);font-family:var(--slab)}
+.achGrid{display:grid;grid-template-columns:repeat(auto-fill,34px);gap:4px;margin-top:10px}
+.achGrid div{width:34px;height:34px;border-radius:6px;background:var(--dark);display:grid;place-items:center;font-size:16px;opacity:.3}
+.achGrid div.got{opacity:1;background:var(--panel3);border:1px solid var(--gold)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;margin:4px 6px 4px 0}
+.btn.primary{background:var(--gold);color:var(--dark);border-color:var(--gold);font-weight:700}
+.btn.danger{background:#7A2C24;border-color:#A8453A}
+textarea{width:100%;height:80px;background:var(--dark);color:var(--cream);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:.75rem;resize:vertical}
+.muted{color:var(--muted);font-size:.9rem;line-height:1.5}
+
+/* Ascension */
+#ascend{position:fixed;inset:0;z-index:90;display:none;place-items:center;text-align:center;pointer-events:none}
+#ascend.on{display:grid;animation:bloom 3.4s ease-in-out forwards}
+#ascend div{font-family:var(--slab);color:#5A3A10;font-size:clamp(1.6rem,5vw,3rem);font-weight:700;animation:ascText 3.4s ease-in-out forwards}
+@keyframes bloom{0%{background:radial-gradient(circle at 50% 100%,#FFF6D8 0%,transparent 0%)}40%{background:radial-gradient(circle at 50% 60%,#FFF6D8 30%,#F2C14E 100%)}75%{background:radial-gradient(circle,#fff 60%,#FFF6D8 100%)}100%{background:#fff0}}
+@keyframes ascText{0%{opacity:0;transform:translateY(80px)}35%,75%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-80px)}}
+
+/* Mobile tabs */
+#tabs{display:none}
+.tabIc{display:block;font-size:1.25rem;line-height:1.1}
+@media (max-width:820px){
+  #main{grid-template-columns:minmax(0,1fr)}
+  #left{border-right:0;border-bottom:2px solid var(--line)}
+  #mid,#right{grid-row:2;grid-column:1;border-right:0;padding-bottom:16px}
+  #main[data-tab="store"] #mid{display:none}
+  #main[data-tab="floor"] #right{display:none}
+  #tabs{display:flex;background:var(--dark);border-top:2px solid var(--line);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+  #tabs button{flex:1;background:none;border:0;padding:7px 4px 8px;color:var(--muted);font-family:var(--slab);font-size:.75rem;min-height:54px}
+  #tabs button.on{color:var(--gold);box-shadow:inset 0 3px 0 var(--gold)}
+  #ticker{min-height:36px}
+  #ticker::before{content:"News";padding:0 10px}
+  .menu #statsBtn,.menu #optBtn,.menu #soundBtn{display:none}
+  .menu{padding:3px}
+  #main{grid-template-rows:52% minmax(0,1fr)}
+  .bakery{margin-top:6px;font-size:1rem}
+  #count{font-size:clamp(1.5rem,7.5vw,2.1rem);margin-top:2px;display:flex;align-items:baseline;gap:6px}
+  #count small{display:inline;font-size:.5em}
+  #cpsline{font-size:.85rem;margin-top:0}
+  #buffs{min-height:0;margin-top:4px}
+  .bld{padding:10px 12px 10px 8px;min-height:62px}
+  .up{width:52px;height:52px}
+  #upgrades{grid-template-columns:repeat(auto-fill,52px)}
+  .bulk button{padding:7px 14px}
+  #toasts{top:calc(env(safe-area-inset-top) + 44px);bottom:auto;left:12px;right:12px;align-items:stretch}
+  .toast{max-width:none;animation-name:tdown;padding:6px 12px;font-size:.8rem}
+  .toast b{font-size:.9rem}
+  @keyframes tdown{from{transform:translateY(-140%)}}
+  #modal{place-items:end center;padding:0}
+  #modalBox{border-radius:20px 20px 0 0;max-height:88vh;padding:22px 18px calc(22px + env(safe-area-inset-bottom));animation:sheet .3s cubic-bezier(.2,.9,.3,1)}
+  #modalBox::before{content:"";display:block;width:40px;height:5px;border-radius:3px;background:var(--line);margin:-10px auto 12px}
+  @keyframes sheet{from{transform:translateY(100%)}}
+  .btn{padding:11px 16px}
+}
+@media (max-width:820px) and (max-height:720px){ #main{grid-template-rows:46% minmax(0,1fr)} }
+@media (max-width:820px) and (max-height:600px){ #main{grid-template-rows:42% minmax(0,1fr)} #cpsline{display:none} }
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}
+  #tickerText{padding-left:12px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div id="ticker" role="marquee" aria-label="News"><span id="tickerText"></span></div>
+    <div class="menu">
+      <button id="ascendBtn">Ascend</button>
+      <button id="statsBtn">Stats</button>
+      <button id="optBtn">Options</button>
+      <button id="soundBtn" aria-label="Toggle sound">🔊</button>
+    </div>
+  </header>
+
+  <main id="main" data-tab="store">
+    <!-- LEFT: cookie panel -->
+    <section id="left">
+      <canvas id="fxBack"></canvas>
+      <div class="bakery"><input id="bname" maxlength="24" aria-label="Bakery owner name"><span>'s Bakery</span></div>
+      <div id="count">0 <small>cookies</small></div>
+      <div id="cpsline">per second: 0</div>
+      <div id="buffs"></div>
+      <div id="stage">
+        <button id="cookieBtn" aria-label="Bake a cookie"><svg id="cookieSvg" viewBox="0 0 240 240"></svg></button>
+      </div>
+      <canvas id="fxFront"></canvas>
+    </section>
+
+    <!-- MIDDLE: animated building scenes -->
+    <section id="mid"><h2>Bakery floor</h2><div id="scenes"></div></section>
+
+    <!-- RIGHT: store -->
+    <section id="right">
+      <h2>Upgrades</h2>
+      <div id="upgrades"></div>
+      <h2>Buildings</h2>
+      <div class="bulk"><span>Buy</span><button data-n="1" class="on">×1</button><button data-n="10">×10</button><button data-n="100">×100</button></div>
+      <div id="store"></div>
+    </section>
+  </main>
+
+  <nav id="tabs"><button data-tab="store" class="on"><span class="tabIc">🛒</span>Store</button><button data-tab="floor"><span class="tabIc">🏭</span>Bakery floor</button><button data-act="stats"><span class="tabIc">📊</span>Stats</button><button data-act="more"><span class="tabIc">⚙️</span>More</button></nav>
+</div>
+
+<button id="golden" aria-label="Golden cookie"><svg viewBox="0 0 100 100"><defs><radialGradient id="gg" cx="40%" cy="35%"><stop offset="0" stop-color="#FFF6C9"/><stop offset=".6" stop-color="#F7C948"/><stop offset="1" stop-color="#C98A12"/></radialGradient></defs><circle cx="50" cy="50" r="44" fill="url(#gg)" stroke="#A8700C" stroke-width="3"/><circle cx="35" cy="38" r="6" fill="#D99A1A"/><circle cx="62" cy="33" r="5" fill="#D99A1A"/><circle cx="58" cy="60" r="7" fill="#D99A1A"/><circle cx="33" cy="64" r="5" fill="#D99A1A"/><path d="M22 30 L26 22 L30 30 L38 34 L30 38 L26 46 L22 38 L14 34 Z" fill="#fff" opacity=".85"/></svg></button>
+<div id="tip"></div>
+<div id="toasts"></div>
+<div id="modal" role="dialog" aria-modal="true"><div id="modalBox"><button id="modalClose" aria-label="Close">×</button><div id="modalBody"></div></div></div>
+<div id="ascend"><div id="ascendText"></div></div>
+
+<script>
+/* =========================================================
+   Crumbworks Bakery — a cookie clicker-style idle game
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const KEY = 'crumbworks-save-v1';
+
+/* ---------- Number formatting ---------- */
+const UNITS = ['million','billion','trillion','quadrillion','quintillion','sextillion','septillion','octillion','nonillion','decillion','undecillion','duodecillion'];
+function fmt(n, dec) {
+  if (!isFinite(n)) return 'Infinity';
+  if (n < 0) return '-' + fmt(-n, dec);
+  if (n < 1e6) {
+    if (dec && n < 100 && n % 1) return n.toFixed(1);
+    return Math.floor(n).toLocaleString('en-US');
+  }
+  const e = Math.floor(Math.log10(n) / 3) * 3, i = e / 3 - 2;
+  if (i >= UNITS.length) return n.toExponential(2);
+  return (n / Math.pow(10, e)).toFixed(3).replace(/\.?0+$/, '') + ' ' + UNITS[i];
+}
+function fmtTime(s) {
+  s = Math.floor(s); const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return (d ? d + 'd ' : '') + (h ? h + 'h ' : '') + m + 'm ' + (s % 60) + 's';
+}
+
+/* ---------- Buildings ---------- */
+const BUILD = [
+  ['cursor','Cursor','👆',15,0.1,'Taps the cookie for you. Asks for nothing. Suspicious.','Index Fingers','tap 2.4s ease-in-out infinite'],
+  ['grandma','Grandma','👵',100,1,'Bakes with love, butter, and forty years of opinions.','Rolling Pins','rock 2.2s ease-in-out infinite'],
+  ['farm','Farm','🌾',1100,8,'Rows of cookie shrubs. The scarecrow is also a cookie.','Hoes','grow 3s ease-in-out infinite'],
+  ['mine','Mine','⛏️',12000,47,'Chocolate veins run deep under the hills.','Pickaxes','sparkle 1.8s ease-in-out infinite'],
+  ['factory','Factory','🏭',130000,260,'Smokestacks that smell like vanilla. The neighbors stopped complaining.','Conveyor Belts','shake .25s linear infinite'],
+  ['bank','Bank','🏦',1.4e6,1400,'Compound interest, paid out in crumbs.','Vaults','coin 3s linear infinite'],
+  ['temple','Temple','🛕',2e7,7800,'Monks meditate on the perfect crunch.','Incense Sticks','glow 2.6s ease-in-out infinite'],
+  ['wizard','Wizard Tower','🧙',3.3e8,44000,'Casts one spell a thousand times a day. It is the cookie spell.','Wands','hover 2.4s ease-in-out infinite'],
+  ['shipment','Shipment','🚀',5.1e9,260000,'Freighters haul dough in from the Biscuit Belt.','Thrusters','launch 2.2s ease-in infinite'],
+  ['alchemy','Alchemy Lab','⚗️',7.5e10,1.6e6,'Lead to gold was never the goal. Gold to cookies was.','Crucibles','bubble 1.4s ease-in-out infinite'],
+  ['portal','Portal','🌀',1e12,1e7,'A doorway to a dimension of dough. Do not lick the frame.','Rift Stabilizers','spin 2s linear infinite'],
+  ['time','Time Machine','⏳',1.4e13,6.5e7,'Collects cookies from breakfasts that never happened.','Paradox Dampers','spin 4s steps(2) infinite'],
+  ['antimatter','Antimatter Condenser','⚛️',1.7e14,4.3e8,'One gram of anti-crumb, very carefully contained.','Magnetic Bottles','spin 1.2s linear infinite'],
+  ['prism','Prism','🌈',2.1e15,2.9e9,'Splits sunlight into seven flavors.','Lenses','hue 3s linear infinite'],
+  ['chance','Chancemaker','🍀',2.6e16,2.1e10,'Finds cookies under couches across the multiverse.','Four-Leaf Clovers','wiggle 1.6s ease-in-out infinite'],
+  ['fractal','Fractal Engine','❄️',3.1e17,1.5e11,'Every cookie contains a smaller bakery.','Recursion Loops','spin 6s linear infinite']
+].map((b, i) => ({ i, id: b[0], name: b[1], icon: b[2], cost: b[3], cps: b[4], desc: b[5], noun: b[6], anim: b[7] }));
+const BI = Object.fromEntries(BUILD.map(b => [b.id, b]));
+
+/* ---------- Upgrades (168 total) ---------- */
+const UP = [], UPI = {};
+const addUp = o => { UP.push(o); UPI[o.id] = o; };
+
+// Building tiers: double output at 1/5/25/50/100/150/200 owned
+const TIER_AT = [1, 5, 25, 50, 100, 150, 200];
+const TIER_COST = [10, 50, 500, 5e4, 5e6, 5e8, 5e10];
+const ADJ = ['Sturdy', 'Polished', 'Overclocked', 'Enchanted', 'Quantum', 'Cosmic', 'Infinite'];
+const FIRST = { cursor: 'Reinforced Index Finger', grandma: 'Forwards from Grandma', farm: 'Cheap Hoes' };
+const TQUOTE = [
+  b => `A modest improvement for a modest ${b.name.toLowerCase()}.`,
+  () => 'Now with 40% less wobble.',
+  () => 'The warranty did not cover this.',
+  () => 'Glows faintly. Smells like vanilla.',
+  () => 'Exists in several states at once. All of them are baking.',
+  () => 'Visible from orbit. So are the crumbs.',
+  () => 'There is no ceiling. There was never a ceiling.'
+];
+BUILD.forEach(b => TIER_AT.forEach((at, t) => addUp({
+  id: `t_${b.id}_${t}`, kind: 'tier', b: b.id, tier: t + 1, icon: b.icon,
+  name: t === 0 && FIRST[b.id] ? FIRST[b.id] : `${ADJ[t]} ${b.noun}`,
+  cost: b.cost * TIER_COST[t],
+  desc: `${b.name}s are twice as efficient.` + (b.id === 'cursor' && t < 3 ? ' Clicking is twice as effective, too.' : ''),
+  quote: TQUOTE[t](b), unlock: () => own(b.id) >= at
+})));
+
+// Mice: clicks gain +1% of CpS each
+const MICE = ['Plastic Mouse','Iron Mouse','Titanium Mouse','Adamant Mouse','Unobtainium Mouse','Nebula Mouse','Dreamsteel Mouse','Mouse of Legend'];
+const MQ = ['Squeaks when you click it.','Heavier than it needs to be.','Aerospace-grade clicking.','Unscratchable. Unbreakable. Unwashable.','Made of material that should not exist.','Every click leaves a tiny star behind.','Forged in the dreams of hungry children.','Songs will be sung about this click.'];
+MICE.forEach((n, k) => addUp({ id: 'mouse' + k, kind: 'mouse', icon: '🖱️', name: n, cost: 5e4 * Math.pow(100, k),
+  desc: 'Clicking gains +1% of your CpS.', quote: MQ[k], unlock: () => S.handmade >= 1e3 * Math.pow(100, k) }));
+
+// Cursor synergy: +X per non-cursor building
+[['Extra Knuckles',0.1,25,1e5],['Finger Choir',0.5,50,1e7],['Hand Army',5,100,1e8],['Digit Legion',50,150,1e10],['Palm Parliament',500,200,1e13],['Knuckle Galaxy',5000,250,1e16]]
+  .forEach(([n, v, at, c], k) => addUp({ id: 'finger' + k, kind: 'finger', v, icon: '✋', name: n, cost: c,
+    desc: `Cursors and clicks gain +${v} cookies for each non-cursor building you own.`,
+    quote: ['More knuckles, more knocks.','They sing in perfect harmony. They sing about cookies.','They march at dawn.','A legion of pointing.','The ayes have it. So do the fingers.','A spiral of hands, reaching.'][k],
+    unlock: () => own('cursor') >= at }));
+
+// Grandma synergies
+const GMA = ['Farmer','Miner','Worker','Banker','Priestess','Witch','Cosmic','Transmuted','Portal-born','Time-lost','Anti','Rainbow','Lucky','Recursive'];
+BUILD.slice(2).forEach((b, k) => addUp({ id: 'gma_' + b.id, kind: 'gma', b: b.id, icon: '👵', sub: b.icon,
+  name: `${GMA[k]} Grandmas`, cost: b.cost * 50,
+  desc: `Grandmas are twice as efficient. ${b.name}s gain +1% CpS for every 4 grandmas.`,
+  quote: `"I've always wanted to try ${b.name.toLowerCase()} work," she says, a little too calmly.`,
+  unlock: () => own(b.id) >= 15 && own('grandma') >= 1 }));
+
+// Flavor cookies
+[['Chocolate Chip',1],['Oatmeal Raisin',1],['Peanut Butter',1],['Snickerdoodle',2],['Macadamia',2],['Double Chocolate',2],['White Chocolate',2],['Shortbread',3],['Gingersnap',3],['Lemon Crinkle',3],['Salted Caramel',4],['Red Velvet',4],['Matcha',4],['Brown Butter Pecan',5],['Stardust',5]]
+  .forEach(([n, v], k) => addUp({ id: 'flavor' + k, kind: 'flavor', v, icon: '🍪', name: n + ' Cookies',
+    cost: 1e5 * Math.pow(10, k), desc: `Cookie production multiplier +${v}%.`,
+    quote: ['A classic for a reason.','The raisins are optional. They are not optional.','Sticks to the roof of your mouth. Worth it.','Cinnamon sugar diplomacy.','Buttery, crunchy, a little bougie.','Twice the chocolate, twice the guilt.','Technically not chocolate. Nobody cares.','Three ingredients and a lot of attitude.','Snaps like a twig, bites back.','Tart, bright, extremely crinkly.','Sweet, salty, and a little smug.','Velvet you can eat.','Earthy, green, calm.','Butter, browned. Pecans, toasted. You, delighted.','Baked in the heart of a dying star.'][k],
+    unlock: () => S.bakedAll >= 5e4 * Math.pow(10, k) }));
+
+// Golden cookie upgrades
+[['Shiny Wrappers','freq',1,7.777e6,'Golden cookies appear twice as often.'],['Four-Leaf Sprinkles','freq',5,7.777e8,'Golden cookies appear twice as often.'],['Slow Gold','dur',15,7.777e10,'Golden cookies stay on screen twice as long.']]
+  .forEach(([n, v, at, c, d], k) => addUp({ id: 'gold' + k, kind: 'gold', v, icon: '✨', name: n, cost: c, desc: d,
+    quote: ['Crinkly, gold, irresistible.','Luck, but make it edible.','Golden cookies, now in slow motion.'][k], unlock: () => S.golden >= at }));
+
+// Kittens: scale with milk (achievements)
+[['Kitten Apprentices',0.1,10,9e6],['Kitten Bakers',0.125,20,9e8],['Kitten Engineers',0.15,30,9e10],['Kitten Managers',0.175,45,9e13],['Kitten Accountants',0.2,60,9e16],['Kitten Philosophers',0.2,75,9e19]]
+  .forEach(([n, v, at, c], k) => addUp({ id: 'kitten' + k, kind: 'kitten', v, icon: '🐱', name: n, cost: c,
+    desc: 'You gain more CpS the more milk you have. Earn achievements to fill the milk.',
+    quote: ['"meow, may i help"','"i knead dough, it is my calling"','"i have optimized the whisk"','"let us circle back on the crumbs"','"the numbers are purrfect"','"what is a cookie, truly"'][k],
+    unlock: () => A.size >= at }));
+
+// Joke and cosmetic upgrades
+addUp({ id: 'trophy', kind: 'trophy', icon: '🏆', name: 'Participation Trophy', cost: 1, desc: 'Cookie production +0.01%.', quote: 'You tried.', unlock: () => S.clicks >= 50 });
+addUp({ id: 'sprinkles', kind: 'cos', icon: '🍭', name: 'Rainbow Sprinkles', cost: 1e4, desc: 'Adds sprinkles to your cookie. Does nothing else.', quote: 'Purely for morale.', unlock: () => S.bakedAll >= 5e3 });
+addUp({ id: 'tophat', kind: 'cos', icon: '🎩', name: 'Very Tiny Top Hat', cost: 1e5, desc: 'Your cookie is now dressed for the opera.', quote: 'Distinguished. Crumbly.', unlock: () => S.bakedAll >= 5e4 });
+addUp({ id: 'shades', kind: 'cos', icon: '🕶️', name: 'Cool Sunglasses', cost: 7e6, desc: 'Your cookie is too cool for this bakery.', quote: 'It does not look at explosions.', unlock: () => S.bakedAll >= 1e6 });
+
+/* ---------- Achievements (84 total) ---------- */
+const ACH = [];
+const ach = (id, name, desc, test, icon) => ACH.push({ id, name, desc, test, icon: icon || '🏅' });
+[[1,'First crumb'],[1e3,'Kitchen apprentice'],[1e5,'Oven mitts on'],[1e6,'Neighborhood legend'],[1e8,'Flour power'],[1e9,'Dough tycoon'],[1e11,'Crumb baron'],[1e12,'Trillion-chip salute'],[1e14,'Sugar empire'],[1e15,'Galactic bake sale'],[1e17,'Cookie singularity'],[1e18,'The crumb that ate the sky']]
+  .forEach(([v, n]) => ach('baked' + v, n, `Bake ${fmt(v)} cookie${v > 1 ? 's' : ''} in total.`, () => S.bakedAll >= v, '🍪'));
+[[1,'Steady hands'],[10,'Warm oven'],[100,'Busy kitchen'],[1e3,'Bakery district'],[1e4,'Conveyor dreams'],[1e5,'Cookie weather'],[1e6,'Crumb hurricane'],[1e7,'Dough tide'],[1e9,'Cookie gravity'],[1e11,'Baking the universe']]
+  .forEach(([v, n]) => ach('cps' + v, n, `Bake ${fmt(v)} cookies per second.`, () => C.base >= v, '⚡'));
+BUILD.forEach(b => {
+  ach('own1_' + b.id, `First ${b.name.toLowerCase()}`, `Own 1 ${b.name.toLowerCase()}.`, () => own(b.id) >= 1, b.icon);
+  ach('own50_' + b.id, `${b.name} collector`, `Own 50 ${b.name.toLowerCase()}s.`, () => own(b.id) >= 50, b.icon);
+  ach('own100_' + b.id, `${b.name} dynasty`, `Own 100 ${b.name.toLowerCase()}s.`, () => own(b.id) >= 100, b.icon);
+});
+[[1,'Poke'],[100,'Clicky'],[1000,'Tap dancer'],[10000,'Finger of steel']].forEach(([v, n]) => ach('click' + v, n, `Click the cookie ${fmt(v)} times.`, () => S.clicks >= v, '👆'));
+[[1,'Shiny!'],[7,'Lucky streak'],[27,'Gold rush'],[77,'Midas mitts']].forEach(([v, n]) => ach('gold' + v, n, `Click ${v} golden cookie${v > 1 ? 's' : ''}.`, () => S.golden >= v, '✨'));
+ach('s_ticker', 'Stop the presses', 'Secret: click the news ticker 5 times.', () => S.flags.ticker >= 5, '📰');
+ach('s_name', 'Family business', 'Secret: name your bakery after a grandma.', () => S.flags.gname, '👵');
+ach('s_handsoff', 'Hands off', 'Secret: bake 1 million cookies in one run with 15 clicks or fewer.', () => S.baked >= 1e6 && S.runClicks <= 15, '🙌');
+ach('s_ascend', 'Born again', 'Secret: ascend for the first time.', () => S.ascensions >= 1, '😇');
+ach('s_cos', 'Just for looks', 'Secret: buy an upgrade that does absolutely nothing.', () => ['sprinkles','tophat','shades'].some(id => U.has(id)), '💅');
+ach('s_speed', 'Speed demon', 'Secret: click 15 times in one second.', () => S.flags.speed, '💨');
+
+/* ---------- State ---------- */
+const NAMES = ['Maple','Biscuit','Pip','Juniper','Waffles','Clementine','Nutmeg','Crumbelina','Buttons','Fig'];
+function fresh() {
+  return { cookies: 0, baked: 0, bakedAll: 0, handmade: 0, clicks: 0, runClicks: 0, golden: 0, owned: {}, ups: [], ach: [], unl: [], rev: [],
+    name: pick(NAMES), chips: 0, ascensions: 0, started: Date.now(), runStart: Date.now(), last: Date.now(), sound: true, flags: { ticker: 0 } };
+}
+let S = fresh(), U = new Set(), A = new Set(), UNL = new Set(), REV = new Set();
+let C = { cps: 0, base: 0, per: {}, click: 1, goldFreq: 1, goldDur: 1 };
+const buffs = {};
+let bulk = 1, shown = 0;
+const own = id => S.owned[id] || 0;
+
+function applyState(o) {
+  const f = fresh();
+  S = Object.assign(f, o); S.flags = Object.assign(f.flags, o.flags || {});
+  U = new Set(S.ups); A = new Set(S.ach); UNL = new Set(S.unl); REV = new Set(S.rev);
+  shown = S.cookies;
+}
+
+/* ---------- Production math ---------- */
+function calc() {
+  const tiers = {}; let fingers = 0, mice = 0, flavor = 0, kit = 1, trophy = 1, gf = 1, gd = 1; const gm = [];
+  const milk = A.size * 0.04;
+  for (const id of U) {
+    const u = UPI[id]; if (!u) continue;
+    if (u.kind === 'tier') tiers[u.b] = (tiers[u.b] || 0) + 1;
+    else if (u.kind === 'mouse') mice++;
+    else if (u.kind === 'finger') fingers += u.v;
+    else if (u.kind === 'gma') gm.push(u.b);
+    else if (u.kind === 'flavor') flavor += u.v;
+    else if (u.kind === 'gold') u.v === 'freq' ? gf *= 2 : gd *= 2;
+    else if (u.kind === 'kitten') kit *= 1 + milk * u.v;
+    else if (u.kind === 'trophy') trophy = 1.0001;
+  }
+  let total = 0; BUILD.forEach(b => total += own(b.id));
+  const nonCursor = total - own('cursor'), gOwn = own('grandma');
+  const mult = {}; BUILD.forEach(b => mult[b.id] = Math.pow(2, tiers[b.id] || 0));
+  gm.forEach(id => { mult.grandma *= 2; mult[id] *= 1 + gOwn / 400; });
+  const global = (1 + flavor / 100) * (1 + S.chips / 100) * kit * trophy;
+  let raw = 0; const per = {};
+  BUILD.forEach(b => {
+    const unit = b.cps + (b.id === 'cursor' ? fingers * nonCursor : 0);
+    per[b.id] = own(b.id) * unit * mult[b.id] * global; raw += per[b.id];
+  });
+  const now = Date.now();
+  const frenzy = buffs.frenzy && buffs.frenzy.end > now ? 7 : 1;
+  const cf = buffs.clickfrenzy && buffs.clickfrenzy.end > now ? 777 : 1;
+  const cps = raw * frenzy;
+  const click = ((Math.pow(2, Math.min(tiers.cursor || 0, 3)) + fingers * nonCursor) * global + cps * mice * 0.01) * cf;
+  C = { cps, base: raw, per, click, goldFreq: gf, goldDur: gd, total };
+}
+function gain(v) { S.cookies += v; S.baked += v; S.bakedAll += v; }
+
+/* ---------- Sound (Web Audio) ---------- */
+let AC = null;
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return AC; }
+function tone(f, d, type, vol, delay, slide) {
+  const a = ac(); if (!a || !S.sound) return;
+  const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(f * slide, t + d);
+  g.gain.setValueAtTime(vol || .06, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + d + .02);
+}
+function sfx(k) {
+  if (!S.sound) return;
+  if (k === 'click') tone(rand(460, 620), .09, 'sine', .07, 0, .5);
+  else if (k === 'buy') { tone(660, .1, 'triangle', .06); tone(880, .14, 'triangle', .05, .07); }
+  else if (k === 'ach') [523, 659, 784, 1047].forEach((f, i) => tone(f, .3, 'triangle', .05, i * .08));
+  else if (k === 'gold') [784, 988, 1175, 1568].forEach((f, i) => tone(f, .35, 'sine', .05, i * .07));
+}
+
+/* ---------- Cookie art (generated SVG) ---------- */
+function buildCookieSvg() {
+  let seed = 7; const r = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const pts = []; for (let i = 0; i < 40; i++) { const a = i / 40 * Math.PI * 2, rr = 106 + (r() - .5) * 7; pts.push([120 + Math.cos(a) * rr, 120 + Math.sin(a) * rr]); }
+  let d = `M${(pts[0][0] + pts[1][0]) / 2},${(pts[0][1] + pts[1][1]) / 2}`;
+  for (let i = 1; i <= 40; i++) { const p = pts[i % 40], n = pts[(i + 1) % 40]; d += ` Q${p[0]},${p[1]} ${(p[0] + n[0]) / 2},${(p[1] + n[1]) / 2}`; }
+  const chips = [[80,75,13],[140,62,11],[172,112,14],[118,118,12],[70,140,14],[128,170,13],[176,165,10],[95,195,8],[45,100,8],[150,210,7],[200,90,7]]
+    .map(([x, y, s]) => `<g transform="rotate(${Math.floor(r() * 90)} ${x} ${y})"><path d="M${x - s},${y + s * .4} Q${x - s * .6},${y - s} ${x},${y - s * .8} Q${x + s},${y - s * .6} ${x + s * .9},${y + s * .3} Q${x},${y + s} ${x - s},${y + s * .4}Z" fill="#4A2A17"/><circle cx="${x - s * .3}" cy="${y - s * .3}" r="${s * .22}" fill="#7A4A2A"/></g>`).join('');
+  const cracks = [[60,60,90,55],[150,95,175,85],[100,160,85,175],[190,140,205,150]].map(([a, b, c, e]) => `<path d="M${a},${b} L${c},${e}" stroke="#B07437" stroke-width="2.5" stroke-linecap="round" opacity=".6"/>`).join('');
+  const colors = ['#FF6B8B','#6BCBFF','#FFE066','#8BE38B','#C49BFF','#FF9F5A'];
+  let spr = ''; for (let i = 0; i < 34; i++) { const a = r() * 6.28, rr = r() * 88; spr += `<rect x="${120 + Math.cos(a) * rr - 5}" y="${120 + Math.sin(a) * rr - 1.5}" width="10" height="3" rx="1.5" fill="${colors[i % 6]}" transform="rotate(${Math.floor(r() * 180)} ${120 + Math.cos(a) * rr} ${120 + Math.sin(a) * rr})"/>`; }
+  $('#cookieSvg').innerHTML = `
+    <defs><radialGradient id="cg" cx="42%" cy="38%" r="65%"><stop offset="0" stop-color="#F0C788"/><stop offset=".65" stop-color="#D69D52"/><stop offset="1" stop-color="#A56A2F"/></radialGradient></defs>
+    <path d="${d}" fill="url(#cg)" stroke="#86501F" stroke-width="4"/>
+    ${cracks}${chips}
+    <g id="cosSpr" style="display:none">${spr}</g>
+    <g id="cosShades" style="display:none"><ellipse cx="92" cy="105" rx="26" ry="16" fill="#111"/><ellipse cx="150" cy="105" rx="26" ry="16" fill="#111"/><rect x="116" y="100" width="12" height="5" fill="#111"/><path d="M78 99 L96 97" stroke="#fff6" stroke-width="3"/></g>
+    <g id="cosHat" style="display:none"><rect x="92" y="-2" width="56" height="30" rx="4" fill="#1B1B1F"/><rect x="92" y="18" width="56" height="7" fill="#8B1E2D"/><ellipse cx="120" cy="30" rx="44" ry="8" fill="#1B1B1F"/></g>`;
+}
+function applyCosmetics() {
+  $('#cosSpr').style.display = U.has('sprinkles') ? '' : 'none';
+  $('#cosHat').style.display = U.has('tophat') ? '' : 'none';
+  $('#cosShades').style.display = U.has('shades') ? '' : 'none';
+}
+
+/* ---------- Canvas effects: rain, cursors, crumbs, milk ---------- */
+const back = $('#fxBack'), front = $('#fxFront'), bx = back.getContext('2d'), fx = front.getContext('2d');
+let W = 0, H = 0, CX = 0, CY = 0, CR = 100;
+const rain = [], crumbs = []; let rainAcc = 0;
+function sprite(draw) { const c = document.createElement('canvas'); c.width = c.height = 64; draw(c.getContext('2d')); return c; }
+const MINI = sprite(g => { g.fillStyle = '#D69D52'; g.beginPath(); g.arc(32, 32, 26, 0, 7); g.fill(); g.strokeStyle = '#86501F'; g.lineWidth = 4; g.stroke(); g.fillStyle = '#4A2A17'; [[22,22],[40,26],[28,40],[42,42],[33,31]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 4.5, 0, 7); g.fill(); }); });
+const HAND = sprite(g => { g.font = '44px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('👆', 32, 34); });
+function sizeCookie() {
+  const st = $('#stage').getBoundingClientRect();
+  const size = Math.max(90, Math.floor(Math.min(260, st.width * .8, st.height * .84)));
+  cookieBtn.style.width = cookieBtn.style.height = size + 'px';
+}
+function resize() {
+  sizeCookie();
+  const dpr = Math.min(devicePixelRatio || 1, 2), r = $('#left').getBoundingClientRect();
+  W = r.width; H = r.height;
+  [back, front].forEach(c => { c.width = W * dpr; c.height = H * dpr; });
+  bx.setTransform(dpr, 0, 0, dpr, 0, 0); fx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cr = $('#cookieBtn').getBoundingClientRect();
+  CX = cr.left - r.left + cr.width / 2; CY = cr.top - r.top + cr.height / 2; CR = cr.width / 2;
+}
+addEventListener('resize', resize);
+
+const MILK = [[0,'#F4EFE6'],[.2,'#C99A6B'],[.4,'#F2B5C4'],[.6,'#BFE3C4'],[.8,'rainbow']];
+function drawFx(t, dt) {
+  bx.clearRect(0, 0, W, H); fx.clearRect(0, 0, W, H);
+  // Cookie rain, density scales with CpS
+  if (!RM) {
+    rainAcc += Math.min(30, Math.log10(C.cps + 1) * 3.5) * dt;
+    while (rainAcc >= 1 && rain.length < 120) { rainAcc--; rain.push({ x: rand(0, W), y: -30, vy: rand(60, 140), r: rand(0, 6.28), vr: rand(-2, 2), s: rand(14, 30) }); }
+  }
+  for (let i = rain.length - 1; i >= 0; i--) {
+    const p = rain[i]; p.y += p.vy * dt; p.r += p.vr * dt;
+    if (p.y > H + 30) { rain.splice(i, 1); continue; }
+    bx.save(); bx.globalAlpha = .55; bx.translate(p.x, p.y); bx.rotate(p.r); bx.drawImage(MINI, -p.s / 2, -p.s / 2, p.s, p.s); bx.restore();
+  }
+  // Milk rises with achievement %
+  const frac = A.size / ACH.length, level = H * (.05 + .22 * frac), top = H - level;
+  let col = MILK[0][1]; MILK.forEach(([m, c]) => { if (frac >= m) col = c; });
+  if (col === 'rainbow') { const g = bx.createLinearGradient(0, 0, W, 0); for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, `hsl(${(i * 60 + t * 40) % 360},75%,78%)`); col = g; }
+  bx.fillStyle = col; bx.globalAlpha = .85; bx.beginPath(); bx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 8) bx.lineTo(x, top + Math.sin(x / 38 + t * 1.6) * 5 + Math.sin(x / 17 - t * 2.3) * 2);
+  bx.lineTo(W, H); bx.fill(); bx.globalAlpha = 1;
+  // Orbiting cursors that tap inward
+  const n = Math.min(own('cursor'), 100);
+  for (let i = 0; i < n; i++) {
+    const ring = i < 50 ? 0 : 1, count = ring ? n - 50 : Math.min(n, 50), idx = ring ? i - 50 : i;
+    const a = idx / count * Math.PI * 2 + t * (ring ? -.08 : .12);
+    const phase = (t * .45 + i * .37) % 1, tap = phase < .12 && !RM ? Math.sin(phase / .12 * Math.PI) * 9 : 0;
+    const rr = CR + 20 + ring * 24 - tap;
+    fx.save(); fx.translate(CX + Math.cos(a) * rr, CY + Math.sin(a) * rr); fx.rotate(a - Math.PI / 2); fx.drawImage(HAND, -12, -12, 24, 24); fx.restore();
+  }
+  // Click crumbs
+  for (let i = crumbs.length - 1; i >= 0; i--) {
+    const p = crumbs[i]; p.life -= dt; if (p.life <= 0) { crumbs.splice(i, 1); continue; }
+    p.vy += 600 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    fx.globalAlpha = Math.min(1, p.life * 2); fx.fillStyle = p.c; fx.beginPath(); fx.arc(p.x, p.y, p.s, 0, 7); fx.fill();
+  }
+  fx.globalAlpha = 1;
+}
+
+/* ---------- Clicking the big cookie ---------- */
+const cookieBtn = $('#cookieBtn'), left = $('#left');
+let clickTimes = [];
+function floatText(x, y, text, cls, parent) {
+  const el = document.createElement('div'); el.className = 'float ' + (cls || ''); el.textContent = text;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  (parent || left).appendChild(el); setTimeout(() => el.remove(), 1900);
+  if (!parent && left.querySelectorAll('.float').length > 30) left.querySelector('.float').remove();
+}
+function bake(x, y) {
+  calc(); const v = C.click; gain(v); S.handmade += v; S.clicks++; S.runClicks++;
+  floatText(x, y - 10, '+' + fmt(v, true));
+  const burst = RM ? 0 : 7;
+  for (let i = 0; i < burst && crumbs.length < 150; i++) crumbs.push({ x, y, vx: rand(-160, 160), vy: rand(-280, -80), s: rand(2, 4.5), life: rand(.5, .9), c: pick(['#D69D52', '#A56A2F', '#4A2A17', '#F0C788']) });
+  buzz(6);
+  const now = performance.now(); clickTimes.push(now); clickTimes = clickTimes.filter(t => now - t < 1000);
+  if (clickTimes.length >= 15) S.flags.speed = true;
+  sfx('click');
+}
+// pointerdown fires instantly and supports several fingers tapping at once
+cookieBtn.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault(); cookieBtn.classList.add('press');
+  const r = left.getBoundingClientRect(); bake(e.clientX - r.left, e.clientY - r.top);
+});
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => cookieBtn.addEventListener(ev, () => cookieBtn.classList.remove('press')));
+cookieBtn.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  e.preventDefault(); if (e.repeat) return;
+  cookieBtn.classList.add('press'); setTimeout(() => cookieBtn.classList.remove('press'), 80); bake(CX, CY);
+});
+cookieBtn.addEventListener('contextmenu', e => e.preventDefault());
+// Haptic feedback (Android and other browsers that support it)
+function buzz(ms) { if (S.haptics !== false && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
+
+/* ---------- Store: buildings ---------- */
+const storeEl = $('#store'), bldEls = {};
+function price(b, n) { return Math.ceil(b.cost * Math.pow(1.15, own(b.id)) * (Math.pow(1.15, n) - 1) / .15); }
+function buildStore() {
+  storeEl.innerHTML = '';
+  BUILD.forEach(b => {
+    const el = document.createElement('button'); el.className = 'bld hidden';
+    el.innerHTML = `<div class="ic">${b.icon}</div><div><div class="nm"></div><div class="pr"></div></div><div class="ow"></div>`;
+    let lp = null, lpFired = false;
+    el.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; lpFired = false; lp = setTimeout(() => { lpFired = true; buzz(10); showTip(el, bldTip(b)); }, 450); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => el.addEventListener(ev, () => clearTimeout(lp)));
+    el.addEventListener('click', () => { if (lpFired) { lpFired = false; return; } hideTip(); buyBuilding(b, el); });
+    tipOn(el, () => bldTip(b));
+    storeEl.appendChild(el); bldEls[b.id] = el;
+  });
+}
+function bldTip(b) {
+  if (!REV.has(b.id) && !own(b.id)) return `<b>???</b><p>Keep baking to reveal this building.</p>`;
+  const o = own(b.id), each = o ? C.per[b.id] / o : 0, pct = C.base ? C.per[b.id] / C.base * 100 : 0;
+  return `<b>${b.name}</b><span class="c">🍪 ${fmt(price(b, bulk))} for ${bulk}</span><p>${b.desc}</p>` +
+    (o ? `<q>Each makes ${fmt(each, true)}/s. All ${o} make ${fmt(C.per[b.id], true)}/s (${pct.toFixed(1)}% of total).</q>` : '');
+}
+function buyBuilding(b, el) {
+  if (!REV.has(b.id) && !own(b.id)) return;
+  const p = price(b, bulk); if (S.cookies < p) return;
+  S.cookies -= p; S.owned[b.id] = own(b.id) + bulk;
+  sfx('buy'); buzz(12); calc(); updateScene(b); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  queueSave(); if (tipTarget === el) showTip(el, bldTip(b));
+}
+function renderStore() {
+  BUILD.forEach((b, i) => {
+    const el = bldEls[b.id], o = own(b.id), p = price(b, bulk);
+    if (!REV.has(b.id) && S.cookies >= b.cost * .6) REV.add(b.id);
+    const revealed = o > 0 || REV.has(b.id);
+    const prevRev = i === 0 || own(BUILD[i - 1].id) > 0 || REV.has(BUILD[i - 1].id);
+    el.classList.toggle('hidden', !revealed && !prevRev);
+    el.classList.toggle('mystery', !revealed);
+    el.classList.toggle('afford', revealed && S.cookies >= p);
+    const nm = revealed ? b.name : '???', pr = '🍪 ' + fmt(p), ow = o || '';
+    if (el._nm !== nm) { el.querySelector('.nm').textContent = el._nm = nm; }
+    if (el._pr !== pr) { el.querySelector('.pr').textContent = el._pr = pr; }
+    if (el._ow !== ow) { el.querySelector('.ow').textContent = el._ow = ow; }
+  });
+}
+document.querySelectorAll('.bulk button').forEach(btn => btn.addEventListener('click', () => {
+  bulk = +btn.dataset.n; document.querySelectorAll('.bulk button').forEach(x => x.classList.toggle('on', x === btn)); renderStore();
+}));
+
+/* ---------- Store: upgrades ---------- */
+const upEl = $('#upgrades'); let upKey = '', selUp = null, lastPointer = 'mouse';
+document.addEventListener('pointerdown', e => { lastPointer = e.pointerType; if (e.pointerType === 'touch' && tipTarget && !tipTarget.contains(e.target)) { hideTip(); selUp = null; upEl.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); } }, true);
+['#right', '#mid'].forEach(sel => $(sel).addEventListener('scroll', () => { if (lastPointer === 'touch') hideTip(); }, { passive: true }));
+function upTip(u) { return `<b>${u.name}</b><span class="c">🍪 ${fmt(u.cost)}</span><p>${u.desc}</p><q>${u.quote}</q>`; }
+function renderUpgrades() {
+  const list = UP.filter(u => UNL.has(u.id) && !U.has(u.id)).sort((a, b) => a.cost - b.cost);
+  const key = list.map(u => u.id).join();
+  if (key !== upKey) {
+    upKey = key; upEl.innerHTML = '';
+    if (!list.length) upEl.innerHTML = '<div class="upEmpty">New upgrades appear here as your bakery grows.</div>';
+    list.forEach(u => {
+      const el = document.createElement('button'); el.className = 'up'; el.dataset.id = u.id; el.setAttribute('aria-label', u.name);
+      el.innerHTML = u.icon + (u.tier ? `<b>${u.tier}</b>` : u.sub ? `<b style="font-size:.8rem">${u.sub}</b>` : '');
+      if (u.tier) el.style.borderColor = ['#9B8', '#8BD', '#C9F', '#FB6', '#F77', '#6FF', '#FFF'][u.tier - 1];
+      el.addEventListener('click', () => {
+        if (lastPointer === 'touch' && selUp !== u.id) { selUp = u.id; upEl.querySelectorAll('.up').forEach(x => x.classList.toggle('sel', x === el)); showTip(el, upTip(u) + '<p style="color:#9BC59D">Tap again to buy.</p>'); return; }
+        buyUpgrade(u, el);
+      });
+      tipOn(el, () => upTip(u));
+      upEl.appendChild(el);
+    });
+  }
+  upEl.querySelectorAll('.up').forEach(el => el.classList.toggle('afford', S.cookies >= UPI[el.dataset.id].cost));
+}
+function buyUpgrade(u, el) {
+  if (S.cookies < u.cost) return;
+  S.cookies -= u.cost; U.add(u.id); selUp = null; hideTip();
+  const r = el.getBoundingClientRect(); sparkles(r.left + r.width / 2, r.top + r.height / 2);
+  sfx('buy'); applyCosmetics(); calc(); renderUpgrades(); queueSave();
+  toast('Upgrade bought', u.name, u.desc);
+}
+function sparkles(x, y) {
+  if (RM) return;
+  for (let i = 0; i < 12; i++) {
+    const s = document.createElement('span'); s.className = 'spark'; s.textContent = pick(['✦', '✧', '★']);
+    const a = i / 12 * 6.28; s.style.left = x + 'px'; s.style.top = y + 'px';
+    s.style.setProperty('--dx', Math.cos(a) * rand(30, 60) + 'px'); s.style.setProperty('--dy', Math.sin(a) * rand(30, 60) + 'px');
+    document.body.appendChild(s); setTimeout(() => s.remove(), 750);
+  }
+}
+
+/* ---------- Tooltip ---------- */
+const tip = $('#tip'); let tipTarget = null;
+function tipOn(el, fn) {
+  el.addEventListener('mouseenter', () => { if (lastPointer !== 'touch') showTip(el, fn()); });
+  el.addEventListener('mouseleave', hideTip);
+  el.addEventListener('focus', () => showTip(el, fn())); el.addEventListener('blur', hideTip);
+}
+function showTip(el, html) {
+  tipTarget = el; tip.innerHTML = html; tip.style.display = 'block';
+  const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = r.left - tw - 10; if (x < 8) x = Math.min(r.right + 10, innerWidth - tw - 8);
+  let y = Math.max(8, Math.min(r.top, innerHeight - th - 8));
+  if (innerWidth < 820) { x = Math.max(8, Math.min(r.left, innerWidth - tw - 8)); y = r.top - th - 8; if (y < 8) y = r.bottom + 8; }
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip() { tip.style.display = 'none'; tipTarget = null; }
+
+/* ---------- Bakery floor scenes ---------- */
+const scenesEl = $('#scenes'), sceneEls = {};
+function buildScenes() {
+  scenesEl.innerHTML = '<div class="empty" id="sceneEmpty">Buy your first building and it will get to work down here.</div>';
+  BUILD.forEach(b => {
+    const el = document.createElement('div'); el.className = 'scene'; el.style.display = 'none';
+    el.style.background = `linear-gradient(180deg,hsl(${(25 + b.i * 23) % 360},32%,26%),hsl(${(25 + b.i * 23) % 360},28%,17%))`;
+    el.innerHTML = `<header><span>${b.name}</span><span class="n"></span></header><div class="sprites"></div>`;
+    scenesEl.appendChild(el); sceneEls[b.id] = el;
+  });
+  BUILD.forEach(updateScene);
+}
+function updateScene(b) {
+  const el = sceneEls[b.id], o = own(b.id); el.style.display = o ? '' : 'none';
+  $('#sceneEmpty').style.display = BUILD.some(x => own(x.id)) ? 'none' : '';
+  if (!o) return;
+  el.querySelector('.n').textContent = `${o} owned · ${fmt(C.per[b.id] || 0, true)}/s`;
+  const box = el.querySelector('.sprites'), want = Math.min(o, 20);
+  if (box.childElementCount !== want + (o > 20 ? 1 : 0)) {
+    box.innerHTML = '';
+    for (let i = 0; i < want; i++) { const s = document.createElement('span'); s.textContent = b.icon; s.style.animation = b.anim; s.style.animationDelay = (-Math.random() * 3).toFixed(2) + 's'; box.appendChild(s); }
+    if (o > 20) { const m = document.createElement('em'); box.appendChild(m); }
+  }
+  const m = box.querySelector('em'); if (m) m.textContent = '+' + (o - 20);
+}
+
+/* ---------- Golden cookie ---------- */
+const goldenEl = $('#golden'); let nextGolden = 0, goldenHide = null;
+function scheduleGolden() { nextGolden = Date.now() + rand(60, 300) * 1000 / C.goldFreq; }
+function spawnGolden() {
+  goldenEl.classList.remove('fade');
+  goldenEl.style.left = rand(20, innerWidth - 100) + 'px'; goldenEl.style.top = rand(90, innerHeight - 110) + 'px';
+  goldenEl.style.display = 'block';
+  const life = 13000 * C.goldDur;
+  clearTimeout(goldenHide);
+  goldenHide = setTimeout(() => { goldenEl.classList.add('fade'); setTimeout(() => { goldenEl.style.display = 'none'; }, 600); scheduleGolden(); }, life);
+}
+goldenEl.addEventListener('click', () => {
+  clearTimeout(goldenHide); goldenEl.style.display = 'none'; S.golden++; sfx('gold'); buzz([20, 40, 20]); calc();
+  const r = goldenEl.getBoundingClientRect(), x = r.left + 37, y = r.top + 20;
+  const roll = Math.random(); let msg;
+  if (roll < .40) {
+    const v = Math.min(S.cookies * .15, C.base * 900) + 13; gain(v); msg = `Lucky! +${fmt(v)} cookies`;
+  } else if (roll < .75) {
+    buffs.frenzy = { end: Date.now() + 77000, dur: 77000, label: 'Frenzy: CpS ×7' }; msg = 'Frenzy! CpS ×7 for 77 seconds';
+  } else if (roll < .85) {
+    buffs.clickfrenzy = { end: Date.now() + 13000, dur: 13000, label: 'Click frenzy: clicks ×777' }; msg = 'Click frenzy! Clicks ×777 for 13 seconds';
+  } else {
+    const cap = Math.max(7777, Math.min(S.cookies * .5, C.base * 21600)); let v = 7, total = 0; const steps = [];
+    while (total + v <= cap && steps.length < 12) { steps.push(v); total += v; v = v * 10 + 7; }
+    steps.forEach((val, i) => setTimeout(() => { gain(val); floatText(x, y - i * 4, '+' + fmt(val), 'gold', document.body); tone(600 + i * 90, .15, 'triangle', .05); }, i * 230));
+    msg = `Cookie chain ×${steps.length}!`;
+  }
+  const f = document.createElement('div'); f.className = 'float gold'; f.style.position = 'fixed'; f.style.left = x + 'px'; f.style.top = y + 'px'; f.textContent = msg;
+  document.body.appendChild(f); setTimeout(() => f.remove(), 1900);
+  sparkles(x, y + 17); scheduleGolden();
+});
+function renderBuffs() {
+  const now = Date.now(); let html = '';
+  for (const k in buffs) {
+    const b = buffs[k]; if (b.end <= now) { delete buffs[k]; continue; }
+    html += `<div class="buff">${b.label} · ${Math.ceil((b.end - now) / 1000)}s<i style="width:${(b.end - now) / b.dur * 100}%"></i></div>`;
+  }
+  $('#buffs').innerHTML = html;
+}
+
+/* ---------- News ticker ---------- */
+const tickerText = $('#tickerText');
+function newsPool() {
+  const g = own('grandma'), p = [
+    'Local bakery reports a "normal amount" of cookies. Neighbors disagree.',
+    'Study finds cookies are 100% cookie.',
+    'Man claims he can stop eating cookies whenever he wants. He has not wanted to.',
+    'Weather: scattered crumbs with a chance of sprinkles.',
+    'Dentists form support group.'];
+  if (S.bakedAll < 1e3) p.push('You feel like baking a batch of cookies. Nobody wants to eat them. Yet.', 'Your first cookie is lopsided but proud.');
+  if (g > 0 && g < 50) p.push('Grandmas report they are "just happy to help."', 'Grandma asks why you never call. You are standing right there.', 'Knitting circle converted into a baking circle.');
+  if (g >= 50 && g < 100) p.push('The grandmas have begun humming in unison.', 'Grandma network now covers three counties. They know where you live.', '"We are fine," say the grandmas, all at once.');
+  if (g >= 100) p.push('The grandmas no longer blink.', 'Grandmas petition to rename the town "Grandmatown." Petition signed in flour.', '"Eat your cookies, dear," echoes from every direction.');
+  const extra = { farm: 'County fair crowns largest cookie crop. The winner is the size of a car.', mine: 'Miners strike chocolate. Also strike for better hours.', factory: 'Factory smoke now legally classified as dessert.', bank: 'Banks begin accepting cookies. Coins declared "too crunchy."', temple: 'Monks achieve enlightenment. Enlightenment is chewy.', wizard: 'Wizard accidentally turns himself into a snickerdoodle. Reports feeling "delicious."', shipment: 'Astronauts find cookie crumbs on the moon. Blame you.', alchemy: 'Gold prices collapse as alchemists turn it all into cookies.', portal: 'Portal visitor asks to speak to "the manager of this reality."', time: 'Time traveler warns: "Do not eat the cookie from Thursday."', antimatter: 'Scientists confirm anti-cookies taste like regret.', prism: 'Sunsets now available in chocolate chip.', chance: 'Man finds a cookie in every coat pocket he has ever owned.', fractal: 'Cookie found inside cookie found inside cookie. Investigation continues.' };
+  for (const k in extra) if (own(k)) p.push(extra[k]);
+  if (C.base > 1e6) p.push('Economists baffled as cookies become the world\'s main currency.');
+  if (S.chips > 0) p.push('Reports of a bakery that rose into the sky. Witnesses smelled vanilla.');
+  if (S.golden > 0) p.push('Golden cookie sightings up 300%. Experts urge everyone to "just click it."');
+  return p;
+}
+function nextNews() {
+  tickerText.textContent = pick(newsPool());
+  if (RM) return;
+  tickerText.classList.remove('run'); void tickerText.offsetWidth;
+  tickerText.style.setProperty('--dur', Math.max(12, (tickerText.scrollWidth) / 90) + 's');
+  tickerText.classList.add('run');
+}
+tickerText.addEventListener('animationend', nextNews);
+if (RM) setInterval(nextNews, 9000);
+$('#ticker').addEventListener('click', () => { S.flags.ticker = (S.flags.ticker || 0) + 1; nextNews(); });
+
+/* ---------- Toasts & modal ---------- */
+function toast(kind, name, desc) {
+  const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = `<small>${kind}</small><b>${name}</b>${desc}`;
+  const box = $('#toasts'), phone = innerWidth < 820; box.appendChild(t); while (box.children.length > (phone ? 2 : 4)) box.firstChild.remove();
+  setTimeout(() => t.remove(), phone ? 2800 : 4200);
+}
+function openModal(html) { $('#modalBody').innerHTML = html; $('#modal').classList.add('on'); hideTip(); }
+function closeModal() { $('#modal').classList.remove('on'); }
+$('#modalClose').addEventListener('click', closeModal);
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+$('#statsBtn').addEventListener('click', () => {
+  calc();
+  const rows = [['Cookies in bank', fmt(S.cookies)], ['Cookies baked (this run)', fmt(S.baked)], ['Cookies baked (all time)', fmt(S.bakedAll)],
+    ['Cookies per second', fmt(C.cps, true)], ['Cookies per click', fmt(C.click, true)], ['Handmade cookies', fmt(S.handmade)],
+    ['Cookie clicks', fmt(S.clicks)], ['Golden cookies clicked', S.golden], ['Buildings owned', C.total],
+    ['Upgrades bought', `${U.size} / ${UP.length}`], ['Heavenly chips', `${S.chips} (+${S.chips}% CpS)`], ['Ascensions', S.ascensions],
+    ['Time this run', fmtTime((Date.now() - S.runStart) / 1000)], ['Time played', fmtTime((Date.now() - S.started) / 1000)]];
+  openModal(`<h3>Stats</h3>${rows.map(r => `<div class="statRow"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}
+    <h3 style="margin-top:18px">Achievements ${A.size} / ${ACH.length}</h3>
+    <p class="muted">Each achievement adds 4% milk. Kittens turn milk into cookies.</p>
+    <div class="achGrid">${ACH.map(a => `<div class="${A.has(a.id) ? 'got' : ''}" title="${A.has(a.id) ? a.name + ': ' + a.desc : (a.desc.startsWith('Secret') ? 'Secret achievement' : a.name + ': ' + a.desc)}">${A.has(a.id) ? a.icon : '?'}</div>`).join('')}</div>`);
+});
+
+$('#optBtn').addEventListener('click', () => {
+  openModal(`<h3>Options</h3>
+    <button class="btn" id="oSound">Sound: ${S.sound ? 'on' : 'off'}</button><button class="btn" id="oBuzz">Vibration: ${S.haptics !== false ? 'on' : 'off'}</button>
+    <h3 style="margin-top:16px;font-size:1.1rem">Play as an app</h3>${installHtml()}
+    <h3 style="margin-top:16px;font-size:1.1rem">Export save</h3>
+    <p class="muted">Copy this code somewhere safe to back up your bakery.</p>
+    <textarea readonly id="oExport">${encode()}</textarea><button class="btn" id="oCopy">Copy code</button>
+    <h3 style="margin-top:16px;font-size:1.1rem">Import save</h3>
+    <textarea id="oImport" placeholder="Paste a save code here"></textarea><button class="btn primary" id="oLoad">Load save</button><span class="muted" id="oMsg"></span>
+    <h3 style="margin-top:16px;font-size:1.1rem">Hard reset</h3>
+    <p class="muted">Erases everything, including achievements and heavenly chips.</p>
+    <button class="btn danger" id="oReset">Erase bakery</button>`);
+  $('#oBuzz').onclick = () => { S.haptics = S.haptics === false; $('#oBuzz').textContent = 'Vibration: ' + (S.haptics ? 'on' : 'off'); buzz(15); queueSave(); };
+  if ($('#oInstall')) $('#oInstall').onclick = async () => { installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; closeModal(); };
+  $('#oSound').onclick = () => { S.sound = !S.sound; $('#oSound').textContent = 'Sound: ' + (S.sound ? 'on' : 'off'); syncSoundBtn(); queueSave(); };
+  $('#oCopy').onclick = () => { const t = $('#oExport'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand('copy'); } $('#oCopy').textContent = 'Copied'; };
+  $('#oLoad').onclick = () => {
+    try { applyState(decode($('#oImport').value)); resetView(); save(); closeModal(); toast('Save loaded', 'Welcome back', 'Your bakery has been restored.'); }
+    catch (e) { $('#oMsg').textContent = ' That code could not be read. Check that you pasted the whole thing.'; }
+  };
+  $('#oReset').onclick = () => {
+    const b = $('#oReset');
+    if (b.dataset.sure) { applyState(fresh()); Object.keys(buffs).forEach(k => delete buffs[k]); resetView(); save(); closeModal(); }
+    else { b.dataset.sure = 1; b.textContent = 'Yes, erase everything'; }
+  };
+});
+
+const syncSoundBtn = () => { $('#soundBtn').textContent = S.sound ? '🔊' : '🔇'; };
+$('#soundBtn').addEventListener('click', () => { S.sound = !S.sound; syncSoundBtn(); queueSave(); });
+
+/* ---------- Prestige: ascension ---------- */
+const chipGain = () => Math.floor(Math.cbrt(S.bakedAll / 1e12)) - S.chips;
+$('#ascendBtn').addEventListener('click', () => {
+  const g = chipGain();
+  openModal(`<h3>Ascend</h3><p class="muted">Your bakery rises into the clouds and starts over from nothing. You keep your achievements, stats, and heavenly chips.</p>
+    <div class="statRow"><span>Heavenly chips you'll gain</span><span>+${g}</span></div>
+    <div class="statRow"><span>Permanent CpS bonus after ascending</span><span>+${S.chips + g}%</span></div>
+    <p><button class="btn primary" id="doAscend">Ascend now</button><button class="btn" onclick="closeModal()">Not yet</button></p>`);
+  $('#doAscend').onclick = () => { closeModal(); ascend(g); };
+});
+function ascend(g) {
+  const ov = $('#ascend'); $('#ascendText').innerHTML = `Your bakery ascends…<br><span style="font-size:.6em">+${g} heavenly chips</span>`;
+  ov.classList.remove('on'); void ov.offsetWidth; ov.classList.add('on'); sfx('ach');
+  setTimeout(() => {
+    S.chips += g; S.ascensions++;
+    Object.assign(S, { cookies: 0, baked: 0, owned: {}, runClicks: 0, runStart: Date.now() });
+    U = new Set(); UNL = new Set(); REV = new Set(); Object.keys(buffs).forEach(k => delete buffs[k]);
+    resetView(); save();
+  }, 1500);
+  setTimeout(() => ov.classList.remove('on'), 3500);
+}
+
+/* ---------- Bakery name ---------- */
+const bname = $('#bname');
+function sizeName() { bname.style.width = Math.max(3, bname.value.length + .5) + 'ch'; }
+bname.addEventListener('input', () => {
+  S.name = bname.value.replace(/[<>]/g, '').slice(0, 24); sizeName();
+  if (/gran|grandma|nana|granny|grammy|abuela|oma/i.test(S.name)) S.flags.gname = true;
+});
+bname.addEventListener('change', () => { if (!S.name.trim()) { S.name = pick(NAMES); bname.value = S.name; sizeName(); } queueSave(); });
+
+/* ---------- Mobile tabs ---------- */
+document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => {
+  buzz(5);
+  if (b.dataset.act === 'stats') return $('#statsBtn').click();
+  if (b.dataset.act === 'more') return $('#optBtn').click();
+  $('#main').dataset.tab = b.dataset.tab;
+  document.querySelectorAll('#tabs button[data-tab]').forEach(x => x.classList.toggle('on', x === b));
+}));
+
+/* ---------- Install as an app ---------- */
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function installHtml() {
+  if (isStandalone()) return '<p class="muted">Installed. You are playing the app version.</p>';
+  if (installEvt) return '<button class="btn primary" id="oInstall">Install Crumbworks</button>';
+  if (isIOS()) return '<p class="muted">In Safari, tap the Share button, then choose Add to Home Screen.</p>';
+  return '<p class="muted">Open your browser menu and choose Install app or Add to Home Screen.</p>';
+}
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
+/* ---------- Save system ---------- */
+function serialize() { S.ups = [...U]; S.ach = [...A]; S.unl = [...UNL]; S.rev = [...REV]; S.last = Date.now(); return JSON.stringify(S); }
+function encode() { return btoa(unescape(encodeURIComponent(serialize()))); }
+function decode(str) { const o = JSON.parse(decodeURIComponent(escape(atob(str.trim())))); if (typeof o.cookies !== 'number') throw 0; return o; }
+// Inside Claude: window.storage. Hosted as a web app: the browser's localStorage.
+async function save() {
+  const data = serialize();
+  try { if (window.storage && window.storage.set) { await window.storage.set(KEY, data, false); return; } } catch (e) {}
+  try { localStorage.setItem(KEY, data); } catch (e) {}
+}
+async function load() {
+  try { if (window.storage && window.storage.get) { const r = await window.storage.get(KEY, false); if (r && r.value) return JSON.parse(r.value); } } catch (e) {}
+  try { const v = localStorage.getItem(KEY); if (v) return JSON.parse(v); } catch (e) {}
+  return null;
+}
+addEventListener('pagehide', save);
+let saveTimer = null; function queueSave() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 1000); }
+setInterval(save, 30000);
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+
+/* ---------- Main loops ---------- */
+function resetView() {
+  bname.value = S.name; sizeName(); syncSoundBtn(); calc(); buildStore(); buildScenes(); upKey = ''; renderUpgrades(); renderStore(); applyCosmetics(); scheduleGolden(); shown = S.cookies;
+}
+let lastLogic = Date.now(), slowT = 0;
+function logic() {
+  const now = Date.now(), dt = Math.min((now - lastLogic) / 1000, 86400); lastLogic = now;
+  calc(); gain(C.cps * dt);
+  if (goldenEl.style.display !== 'block' && now >= nextGolden) spawnGolden();
+  slowT += dt;
+  if (slowT >= .5) {
+    slowT = 0;
+    UP.forEach(u => { if (!U.has(u.id) && !UNL.has(u.id) && u.unlock()) UNL.add(u.id); });
+    ACH.forEach(a => { if (!A.has(a.id) && a.test()) { A.add(a.id); toast('Achievement unlocked', a.name, a.desc); sfx('ach'); } });
+    $('#ascendBtn').style.display = chipGain() >= 1 ? 'inline-block' : 'none';
+    BUILD.forEach(b => { if (own(b.id)) sceneEls[b.id].querySelector('.n').textContent = `${own(b.id)} owned · ${fmt(C.per[b.id], true)}/s`; });
+  }
+  renderStore(); renderUpgrades(); renderBuffs();
+}
+let lastFrame = performance.now();
+function frame(t) {
+  const dt = Math.min((t - lastFrame) / 1000, .1); lastFrame = t;
+  shown += (S.cookies - shown) * Math.min(1, dt * 10);
+  if (Math.abs(S.cookies - shown) < 1) shown = S.cookies;
+  $('#count').innerHTML = `${fmt(shown)} <small>cookie${Math.floor(shown) === 1 ? '' : 's'}</small>`;
+  $('#cpsline').textContent = `per second: ${fmt(C.cps, true)}` + (C.cps !== C.base ? ' (frenzy!)' : '');
+  document.title = `${fmt(S.cookies)} cookies · ${S.name}'s Bakery`;
+  drawFx(t / 1000, dt);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Boot ---------- */
+(async function init() {
+  buildCookieSvg();
+  const saved = await load();
+  if (saved) applyState(saved);
+  resetView(); resize(); nextNews();
+  if (saved) {
+    const away = (Date.now() - (saved.last || Date.now())) / 1000;
+    if (away > 60) {
+      const earned = C.base * away * .5; gain(earned); shown = 0;
+      openModal(`<h3>Welcome back!</h3><p class="muted">You were away for ${fmtTime(away)}. Your bakery kept the ovens warm at half speed.</p>
+        <div class="statRow"><span>Cookies baked while you were away</span><span>+${fmt(earned)}</span></div>
+        <p><button class="btn primary" onclick="closeModal()">Back to baking</button></p>`);
+    }
+  }
+  lastLogic = Date.now(); setInterval(logic, 50); requestAnimationFrame(frame);
+  new ResizeObserver(resize).observe($('#left'));
+})();
+</script>
+</body>
+</html>
